@@ -58,8 +58,12 @@ export function LoginForm() {
         return
       }
 
-      console.log('[LOGIN] Login successful! Redirecting...')
-      // Redirect to admin/clients - middleware will handle role-based redirect
+      console.log('[LOGIN] Login successful! Waiting for session to establish...')
+      // Wait for session to be established server-side before redirecting
+      // This prevents middleware from blocking the redirect
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      console.log('[LOGIN] Session should be established now, redirecting...')
       setIsLoading(false)
       console.log('[LOGIN] Redirecting to /admin/clients (middleware will redirect based on role)')
       window.location.href = '/admin/clients'
