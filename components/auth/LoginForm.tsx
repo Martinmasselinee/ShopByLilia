@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
@@ -86,9 +86,17 @@ export function LoginForm() {
         console.warn('[LOGIN] Session not established after 5 seconds, redirecting anyway...')
       }
       
+      console.log('[LOGIN] Forcing session update...')
+      // Force session update to ensure cookies are set
+      await update()
+      
+      console.log('[LOGIN] Session updated, redirecting...')
       setIsLoading(false)
-      console.log('[LOGIN] Redirecting to /admin/clients (middleware will redirect based on role)')
-      window.location.href = '/admin/clients'
+      
+      // Use router.push instead of window.location to preserve session
+      console.log('[LOGIN] Using router.push to /admin/clients')
+      router.push('/admin/clients')
+      router.refresh()
     } catch (timeoutError: any) {
       console.error('[LOGIN] signIn timeout or error:', timeoutError)
       if (timeoutError?.message?.includes('timeout')) {
