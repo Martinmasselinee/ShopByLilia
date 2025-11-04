@@ -1,0 +1,1033 @@
+# PersoShop - Personal Shopper Platform
+# Complete Project Rules & Architecture Guide
+
+## PROJECT OVERVIEW
+
+PersoShop is a premium personal shopper web application where clients upload photos of their clothing items, and admin (Lilia) provides personalized shopping recommendations with direct purchase links.
+
+**Design Style**: Minimalist, Premium, Clean (inspired by Trade Republic)
+**Platform**: Full responsive web application (mobile & desktop) with PWA capabilities for app installation
+**Language**: French (entire application)
+
+---
+
+## TECHNOLOGY STACK
+
+### Frontend
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS (mobile-first responsive utilities)
+- **Font**: Space Grotesk (Google Fonts)
+- **UI Components**: Custom components (no heavy UI libraries)
+- **PWA**: next-pwa plugin
+- **Responsive Images**: Next.js Image component with automatic optimization
+- **State Management**: React Context + React Query for server state
+- **Forms**: React Hook Form + Zod validation
+- **Touch Gestures**: Native touch events and optional swipe libraries
+
+### Backend
+- **Framework**: Next.js API Routes
+- **Database**: PostgreSQL (via Prisma ORM)
+- **Authentication**: NextAuth.js (Credentials + JWT)
+- **File Storage**: Cloudinary (images + automatic background removal)
+- **Real-time**: Server-Sent Events (SSE) or WebSocket for notifications
+- **Email**: Resend or SendGrid (for notifications)
+
+### Infrastructure
+- **Database**: PostgreSQL (Supabase, Neon, or Railway)
+- **Hosting**: Vercel (frontend + API routes)
+- **Image Processing**: Cloudinary API (background removal)
+- **Environment Variables**: Required for all third-party services
+
+---
+
+## ARCHITECTURE & DATABASE SCHEMA
+
+### User Roles
+1. **Admin (Lilia)**: Single admin account, hardcoded email/admin credentials
+2. **Client**: Multiple client accounts, self-registration
+
+### Database Schema (Prisma)
+
+```prisma
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String   // Hashed with bcrypt
+  fullName      String
+  phoneWhatsApp String
+  role          UserRole @default(CLIENT)
+  profilePhoto  String?  // Cloudinary URL
+  piecesOrdered Int      @default(1) // Number of pieces user wants to order (1, 3, 5, or 8)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  expectations  String   // 3 questions response
+  photos        Photo[]
+  propositions  Proposition[]
+  notifications Notification[]
+  
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+model Photo {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cloudinaryId  String   // Cloudinary public ID
+  url           String   // Full Cloudinary URL
+  urlWithoutBg  String   // Background removed URL
+  createdAt     DateTime @default(now())
+  
+  @@map("photos")
+}
+
+model Proposition {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminId     String   // Lilia's user ID
+  cloudinaryId String
+  url         String   // Cloudinary URL
+  productName String
+  productPrice String
+  productUrl  String   // External link (Zara, etc.)
+  status      PropositionStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("propositions")
+}
+
+enum PropositionStatus {
+  PENDING    // No response yet
+  REFUSEE    // User refused
+  INTERESSE  // User interested
+  ACHETE     // User purchased
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  adminId   String?  // Always Lilia's ID
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  message   String
+  photoId   String?  // If related to a photo
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@map("notifications")
+}
+
+enum NotificationType {
+  NEW_PHOTO_UPLOADED      // Client uploaded new photo
+  PROPOSITION_RESPONSE    // Client responded to proposition
+  PIECES_ORDER_UPDATED    // Client updated number of pieces to order
+}
+```
+
+---
+
+## APPLICATION STRUCTURE
+
+### Directory Structure
+```
+/persoshop
+  /app
+    /(auth)
+      /login
+      /register
+    /(dashboard)
+      /admin
+        /clients
+        /notifications
+        /echanges
+        /echanges/[userId]
+      /client
+        /profile
+        /mes-pieces
+        /propositions
+    /api
+      /auth
+        /[...nextauth]
+      /users
+      /photos
+      /propositions
+      /notifications
+      /upload
+    layout.tsx
+    page.tsx (landing page)
+  /components
+    /admin
+    /client
+    /shared
+    /ui
+  /lib
+    /prisma
+    /cloudinary
+    /auth
+    /utils
+  /public
+    /icons (PWA icons)
+  /prisma
+    schema.prisma
+    migrations/
+  .env.local
+  .cursorrules
+  package.json
+  tailwind.config.ts
+  next.config.js
+```
+
+---
+
+## KEY FEATURES & IMPLEMENTATION DETAILS
+
+### 1. AUTHENTICATION & AUTHORIZATION
+
+**Admin Account (Lilia)**
+- Hardcoded email: `lilia@persoshop.com` (configurable via env)
+- Password: Set via environment variable `ADMIN_PASSWORD`
+- Single admin account, created via seed script or migration
+- Role-based access control via NextAuth.js
+
+**Client Registration**
+- Public registration endpoint
+- Required fields:
+  - Email (unique)
+  - Password (min 8 chars, hashed with bcrypt)
+  - Full name
+  - WhatsApp phone number
+  - Profile photo (uploaded to Cloudinary)
+  - Expectations (3 questions - textarea)
+  - Number of pieces to order: Selection between 1, 3, 5, or 8 pieces (default: 1)
+    - Label: "Commander X pièce(s)"
+    - Options: "Commander 1 pièce", "Commander 3 pièces", "Commander 5 pièces", "Commander 8 pièces"
+- Auto-login after registration
+
+**Login Flow**
+- Email + password authentication
+- JWT tokens via NextAuth.js
+- Redirect based on role (admin → /admin/clients, client → /client/profile)
+
+---
+
+### 2. PHOTO MANAGEMENT
+
+**Client Photo Upload**
+- Upload component with drag & drop (desktop) and tap/select (mobile)
+- Mobile: Access device camera or photo gallery
+- Desktop: Drag & drop file upload area
+- File validation: Images only, max 5MB
+- Upload to Cloudinary → get public URL
+- Automatic background removal via Cloudinary API
+- Preview both versions (original + no background)
+- Responsive preview:
+  - Mobile: Full-screen modal preview
+  - Desktop: Inline preview
+- User can:
+  - Cancel (delete from Cloudinary)
+  - Confirm (save to database, trigger notification to admin)
+
+**Background Removal**
+- Use Cloudinary's `e_background_removal` transformation
+- Fallback: If Cloudinary fails, use remove.bg API as backup
+- Store both URLs in database (original + no background)
+
+**Photo Storage**
+- All photos stored in Cloudinary
+- Organized by user: `persoshop/users/{userId}/{photoId}`
+- Public URLs stored in database
+
+---
+
+### 3. ADMIN PLATFORM
+
+**Navigation Bar Sections**
+1. **Clients** (`/admin/clients`)
+   - Responsive table/card listing all clients with:
+     - Full name
+     - Email
+     - WhatsApp number
+     - Number of uploaded photos (count)
+     - Pieces progress: Display as "X/Y" where:
+       - Y = `piecesOrdered` (number of pieces client wants to order: 1, 3, 5, or 8)
+       - X = Count of propositions with status `ACHETE` (purchased) for this user
+       - Example: "2/5" means 2 pieces purchased out of 5 ordered
+     - Button: "Voir l'échange" → redirects to `/admin/echanges/[userId]`
+   - Mobile: Card-based layout with key info, swipe actions
+   - Desktop: Full table with all columns visible
+
+2. **Notifications** (`/admin/notifications`)
+   - List of all notifications (newest first)
+   - Filter: Unread only
+   - Each notification shows:
+     - Type (new photo / proposition response)
+     - Client name
+     - Thumbnail (if photo-related)
+     - Timestamp
+     - Click → redirects to `/admin/echanges/[userId]`
+
+3. **Échanges** (`/admin/echanges`)
+   - List of all clients with:
+     - Profile photo
+     - Name
+     - Number of photos uploaded
+     - Last activity date
+     - Click client → `/admin/echanges/[userId]`
+
+**Échange Detail Page** (`/admin/echanges/[userId]`)
+- Responsive layout:
+  - Mobile: Stacked layout (client photos above, admin propositions below)
+  - Desktop: Side-by-side layout (client photos left, admin propositions right)
+- Client's uploaded photos (responsive grid)
+- Admin's propositions (responsive grid)
+- Upload form for new proposition:
+  - Photo upload (Cloudinary) - touch-friendly on mobile
+  - Product name (text) - full-width on mobile
+  - Product price (text) - full-width on mobile
+  - Product URL (external link) - full-width on mobile
+  - Submit → creates proposition, triggers notification to client
+
+---
+
+### 4. CLIENT PLATFORM
+
+**Navigation Bar Sections**
+1. **Profil** (`/client/profile`)
+   - Display user info:
+     - Full name (read-only)
+     - Email (read-only)
+     - WhatsApp number (read-only)
+     - Profile photo (editable)
+     - Expectations (editable)
+     - Number of pieces to order (editable):
+       - Current selection displayed
+       - Dropdown/buttons to select: 1, 3, 5, or 8 pieces
+       - Label: "Commander X pièce(s)"
+       - When changed:
+         - Updates `piecesOrdered` field in database
+         - Sends notification to admin (type: `PIECES_ORDER_UPDATED`)
+         - Updates progress display in admin's clients table
+   - Upload new profile photo
+
+2. **Mes Pièces** (`/client/mes-pieces`)
+   - Responsive grid of all uploaded photos (no background versions):
+     - Mobile: 1-2 columns
+     - Tablet: 2-3 columns
+     - Desktop: 3-4 columns
+   - Upload new photo button (touch-friendly on mobile)
+   - Each photo shows upload date
+   - Delete photo option (with confirmation) - swipe to delete on mobile (optional)
+
+3. **Propositions** (`/client/propositions`)
+   - Responsive grid of all propositions from admin:
+     - Mobile: 1 column (full-width cards)
+     - Tablet: 2 columns
+     - Desktop: 2-3 columns
+   - Each proposition shows:
+     - Product photo (responsive image)
+     - Product name
+     - Product price
+     - "Voir le produit" button (external link) - touch-friendly
+     - Status buttons: [Refusée] [Intéressé] [Acheté] - touch-friendly, large tap targets
+   - Clicking status button:
+     - Updates proposition status
+     - Triggers notification to admin
+     - Visual feedback (button state changes)
+   - Mobile: Swipe actions for quick status changes (optional)
+
+---
+
+### 5. PIECES ORDERING SYSTEM
+
+**Registration Flow**
+- User must select number of pieces to order during registration
+- Options: 1, 3, 5, or 8 pieces
+- Label: "Commander X pièce(s)"
+- Default: 1 piece
+- Stored in `piecesOrdered` field in User model
+
+**Progress Tracking**
+- Admin's clients table displays progress as "X/Y":
+  - Y = `piecesOrdered` (total pieces user wants to order)
+  - X = Count of propositions with status `ACHETE` (purchased)
+  - Calculated dynamically: `COUNT(propositions WHERE status = 'ACHETE' AND userId = user.id)`
+- Example: "2/5" means user has purchased 2 pieces out of 5 ordered
+
+**Profile Update**
+- User can update `piecesOrdered` at any time from profile page
+- When updated:
+  1. Database field `piecesOrdered` is updated
+  2. Notification sent to admin (type: `PIECES_ORDER_UPDATED`)
+  3. Admin's clients table automatically reflects new Y value
+  4. Progress display updates (e.g., "2/5" → "2/8" if changed from 5 to 8)
+
+**Implementation Details**
+- Pieces selector component: Radio buttons or dropdown
+- Validation: Must be one of: 1, 3, 5, or 8
+- API endpoint: `PUT /api/users/[userId]` with `piecesOrdered` field
+- Notification message: "Client [name] a modifié sa commande: [X] pièce(s)"
+
+---
+
+### 6. NOTIFICATIONS SYSTEM
+
+**Real-time Updates**
+- Server-Sent Events (SSE) or WebSocket
+- Admin receives notifications when:
+  - Client uploads new photo
+  - Client responds to proposition (refusée/intéressé/acheté)
+  - Client updates number of pieces to order (changes `piecesOrdered`)
+- Client receives notifications when:
+  - Admin sends new proposition
+
+**Notification Storage**
+- All notifications stored in database
+- Mark as read functionality
+- Badge count in navigation
+
+---
+
+### 7. WHATSAPP INTEGRATION
+
+**Implementation**
+- Display WhatsApp phone number as clickable link
+- Format: `https://wa.me/{phoneNumber}`
+- No actual WhatsApp API integration (just links)
+
+---
+
+### 8. PWA (Progressive Web App)
+
+**Requirements**
+- Installable on iOS/Android as native app
+- Fully accessible through browser on both mobile and desktop
+- App icons (192x192, 512x512)
+- Manifest.json configured
+- Service worker for offline capability
+- Splash screen
+- App name: "PersoShop"
+
+**Platform Support**
+- ✅ Mobile browser (iOS Safari, Chrome Android)
+- ✅ Desktop browser (Chrome, Firefox, Safari, Edge)
+- ✅ Installed PWA app (iOS home screen, Android home screen)
+- ✅ All features work identically across all platforms
+
+**Configuration**
+- next-pwa plugin
+- Icons in `/public/icons`
+- Manifest in `/public/manifest.json`
+- Responsive design ensures perfect experience on all screen sizes
+
+---
+
+## STYLING GUIDELINES
+
+### Design Principles
+- **Minimalist**: Clean, uncluttered interfaces
+- **Premium**: High-quality UI, smooth animations
+- **Clean**: Consistent spacing, typography, colors
+
+### Color Palette
+- Primary: Dark blue/navy (#1a1f3a or similar)
+- Background: White (#ffffff)
+- Text: Dark gray (#1f2937)
+- Accents: Subtle colors for buttons/links
+- Borders: Light gray (#e5e7eb)
+
+### Typography
+- Font: Space Grotesk (Google Fonts)
+- Headings: Bold, larger sizes
+- Body: Regular weight, readable size
+
+### Components
+- Rounded corners (8-12px)
+- Subtle shadows
+- Smooth transitions (200-300ms)
+- Hover states on interactive elements (desktop)
+- Touch-friendly tap targets (minimum 44x44px on mobile)
+- Active states for touch interactions (mobile)
+
+### Responsive Design Requirements
+- **Mobile-first approach**: Design for mobile screens first, then enhance for desktop
+- **Breakpoints**:
+  - Mobile: `sm` (640px) and below
+  - Tablet: `md` (768px) to `lg` (1024px)
+  - Desktop: `xl` (1280px) and above
+- **Touch interactions**:
+  - Minimum touch target size: 44x44px
+  - Adequate spacing between interactive elements
+  - Swipe gestures for navigation where appropriate
+- **Navigation**:
+  - Mobile: Hamburger menu or bottom navigation bar
+  - Desktop: Horizontal navigation bar
+  - Both: Smooth transitions, clear hierarchy
+- **Forms**:
+  - Mobile: Full-width inputs, large tap targets
+  - Desktop: Optimal width, hover states
+- **Images**:
+  - Responsive images with `srcset`
+  - Lazy loading for performance
+  - Optimized sizes for mobile/desktop
+- **Tables** (Admin):
+  - Mobile: Card-based layout or horizontal scroll
+  - Desktop: Full table view
+- **Grids**:
+  - Mobile: 1-2 columns
+  - Tablet: 2-3 columns
+  - Desktop: 3-4 columns
+
+---
+
+## ENVIRONMENT VARIABLES
+
+Required `.env.local`:
+```env
+# Database
+DATABASE_URL="postgresql://..."
+
+# NextAuth
+NEXTAUTH_SECRET="your-secret-key"
+NEXTAUTH_URL="http://localhost:3000"
+
+# Admin
+ADMIN_EMAIL="lilia@persoshop.com"
+ADMIN_PASSWORD="secure-password"
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME="your-cloud-name"
+CLOUDINARY_API_KEY="your-api-key"
+CLOUDINARY_API_SECRET="your-api-secret"
+
+# Optional: Remove.bg (fallback)
+REMOVE_BG_API_KEY="your-api-key"
+```
+
+---
+
+## GRANULAR TODO LIST
+
+### PHASE 1: PROJECT SETUP & INFRASTRUCTURE
+
+#### 1.1 Initialize Next.js Project
+**Status**: ✅ AUTOMATIC
+**Action**: Create Next.js 14+ project with TypeScript
+**Files**: `package.json`, `tsconfig.json`, `next.config.js`, `app/layout.tsx`
+**Dependencies**: next, react, react-dom, typescript, tailwindcss
+**Features**:
+- Add viewport meta tag in root layout
+- Configure for mobile-first responsive design
+- Setup PWA-ready structure
+
+#### 1.2 Install Core Dependencies
+**Status**: ✅ AUTOMATIC
+**Action**: Install all required packages
+**Dependencies**:
+- `@prisma/client`, `prisma`
+- `next-auth`
+- `cloudinary`, `next-cloudinary`
+- `react-hook-form`, `@hookform/resolvers`, `zod`
+- `bcryptjs`, `@types/bcryptjs`
+- `next-pwa`
+- `@tanstack/react-query`
+
+#### 1.3 Configure Tailwind CSS
+**Status**: ✅ AUTOMATIC
+**Action**: Setup Tailwind with Space Grotesk font and responsive breakpoints
+**Files**: `tailwind.config.ts`, `app/globals.css`
+**Features**:
+- Configure responsive breakpoints (sm, md, lg, xl)
+- Add viewport meta tag for mobile
+- Setup mobile-first responsive utilities
+
+#### 1.4 Setup Database
+**Status**: ⚠️ MANUAL (then automatic)
+**Action**: 
+- Create PostgreSQL database (Supabase/Neon/Railway)
+- Get connection string
+- Add to `.env.local`
+- Run Prisma migrations
+**Manual Steps**:
+1. Create account on database provider
+2. Create new database
+3. Copy connection string to `.env.local`
+
+#### 1.5 Setup Prisma Schema
+**Status**: ✅ AUTOMATIC
+**Action**: Create `prisma/schema.prisma` with all models
+**File**: `prisma/schema.prisma`
+
+#### 1.6 Run Prisma Migrations
+**Status**: ✅ AUTOMATIC (after DB setup)
+**Action**: Generate Prisma client and run migrations
+**Command**: `npx prisma migrate dev --name init`
+
+#### 1.7 Setup Cloudinary Account
+**Status**: ⚠️ MANUAL
+**Action**: 
+- Create Cloudinary account
+- Get API credentials
+- Add to `.env.local`
+**Manual Steps**:
+1. Sign up at cloudinary.com
+2. Get cloud name, API key, API secret
+3. Add to `.env.local`
+
+#### 1.8 Configure NextAuth
+**Status**: ✅ AUTOMATIC
+**Action**: Setup NextAuth with credentials provider
+**Files**: `app/api/auth/[...nextauth]/route.ts`, `lib/auth.ts`
+
+#### 1.9 Create Admin Seed Script
+**Status**: ✅ AUTOMATIC
+**Action**: Create script to seed Lilia admin account
+**File**: `prisma/seed.ts`
+**Command**: `npx prisma db seed`
+
+---
+
+### PHASE 2: AUTHENTICATION & LANDING
+
+#### 2.1 Create Landing Page
+**Status**: ✅ AUTOMATIC
+**Action**: Create homepage with "Créer un compte" and "Télécharger l'app" options
+**File**: `app/page.tsx`
+**Features**:
+- Fully responsive layout (mobile & desktop)
+- PWA install prompt for mobile users
+- Touch-friendly buttons and links
+- Mobile-optimized hero section
+
+#### 2.2 Create Registration Page
+**Status**: ✅ AUTOMATIC
+**Action**: Form with photo upload, name, email, phone, expectations, pieces selection
+**File**: `app/(auth)/register/page.tsx`
+**Components**: `components/auth/RegisterForm.tsx`
+**Features**:
+- Pieces selection: Radio buttons or dropdown for 1, 3, 5, or 8 pieces
+- Label: "Commander X pièce(s)"
+- Default: 1 piece
+- Fully responsive form layout
+- Mobile: Full-width inputs, vertical stacking
+- Desktop: Optimal width, multi-column where appropriate
+- Touch-friendly photo upload (drag & drop on desktop, tap on mobile)
+
+#### 2.3 Create Login Page
+**Status**: ✅ AUTOMATIC
+**Action**: Email/password login form
+**File**: `app/(auth)/login/page.tsx`
+**Components**: `components/auth/LoginForm.tsx`
+**Features**:
+- Fully responsive form
+- Mobile: Full-width inputs, large buttons
+- Desktop: Centered, optimal width
+- Touch-friendly keyboard inputs
+
+#### 2.4 Implement Registration API
+**Status**: ✅ AUTOMATIC
+**Action**: API route for user registration
+**File**: `app/api/auth/register/route.ts`
+**Features**: Validate, hash password, create user, upload profile photo, save piecesOrdered (1, 3, 5, or 8)
+
+#### 2.5 Implement Login API
+**Status**: ✅ AUTOMATIC
+**Action**: NextAuth credentials handler
+**File**: Already in NextAuth setup
+
+#### 2.6 Create Auth Middleware
+**Status**: ✅ AUTOMATIC
+**Action**: Protect routes based on authentication
+**File**: `middleware.ts`
+
+---
+
+### PHASE 3: ADMIN PLATFORM
+
+#### 3.1 Create Admin Layout
+**Status**: ✅ AUTOMATIC
+**Action**: Layout with navigation bar (Clients, Notifications, Échanges)
+**File**: `app/(dashboard)/admin/layout.tsx`
+**Components**: `components/admin/AdminNavbar.tsx`
+**Features**:
+- Responsive navigation:
+  - Mobile: Hamburger menu or bottom navigation
+  - Desktop: Horizontal top navigation bar
+- Touch-friendly navigation items
+- Smooth transitions between mobile/desktop views
+
+#### 3.2 Create Clients List Page
+**Status**: ✅ AUTOMATIC
+**Action**: Table showing all clients with photo count, pieces progress (X/Y), redirect button
+**File**: `app/(dashboard)/admin/clients/page.tsx`
+**Components**: `components/admin/ClientsTable.tsx`
+**API**: `app/api/users/route.ts` (GET all clients with pieces progress)
+**Features**:
+- Calculate X (count of propositions with status ACHETE) for each client
+- Display as "X/Y" where Y = piecesOrdered
+- Example: "2/5" means 2 purchased out of 5 ordered
+- Query: `SELECT COUNT(*) WHERE status = 'ACHETE' AND userId = user.id` for each user
+- Responsive display:
+  - Mobile: Card-based layout with key info, swipe actions
+  - Desktop: Full table with all columns
+- Touch-friendly buttons and interactions
+
+#### 3.3 Create Notifications Page
+**Status**: ✅ AUTOMATIC
+**Action**: List of notifications with thumbnails, click to navigate
+**File**: `app/(dashboard)/admin/notifications/page.tsx`
+**Components**: `components/admin/NotificationsList.tsx`
+**API**: `app/api/notifications/route.ts` (GET all admin notifications)
+**Features**: Display notifications for:
+- New photo uploaded
+- Proposition response (refusée/intéressé/acheté)
+- Pieces order updated (show new number of pieces ordered)
+- Responsive layout:
+  - Mobile: Card-based list with large touch targets
+  - Desktop: Table or list view with hover states
+- Touch-friendly interactions
+
+#### 3.4 Create Échanges List Page
+**Status**: ✅ AUTOMATIC
+**Action**: List of all clients for exchange selection
+**File**: `app/(dashboard)/admin/echanges/page.tsx`
+**Components**: `components/admin/EchangesList.tsx`
+**Features**:
+- Responsive client list:
+  - Mobile: Card-based grid (1-2 columns)
+  - Desktop: Grid or list view (2-3 columns)
+- Touch-friendly client cards
+
+#### 3.5 Create Échange Detail Page
+**Status**: ✅ AUTOMATIC
+**Action**: Client photos + admin propositions + upload form
+**File**: `app/(dashboard)/admin/echanges/[userId]/page.tsx`
+**Components**: 
+- `components/admin/EchangeDetail.tsx`
+- `components/admin/PropositionUpload.tsx`
+**API**: 
+- `app/api/photos/[userId]/route.ts` (GET user photos)
+- `app/api/propositions/route.ts` (POST new proposition)
+**Features**:
+- Responsive layout:
+  - Mobile: Stacked layout (photos above, propositions below)
+  - Desktop: Side-by-side layout (photos left, propositions right)
+- Responsive photo grid:
+  - Mobile: 1-2 columns
+  - Tablet: 2-3 columns
+  - Desktop: 3-4 columns
+- Touch-friendly photo viewing and upload
+
+#### 3.6 Implement Proposition Upload API
+**Status**: ✅ AUTOMATIC
+**Action**: Upload photo, save product info, create proposition, send notification
+**File**: `app/api/propositions/route.ts`
+
+---
+
+### PHASE 4: CLIENT PLATFORM
+
+#### 4.1 Create Client Layout
+**Status**: ✅ AUTOMATIC
+**Action**: Layout with navigation bar (Profil, Mes Pièces, Propositions)
+**File**: `app/(dashboard)/client/layout.tsx`
+**Components**: `components/client/ClientNavbar.tsx`
+**Features**:
+- Responsive navigation:
+  - Mobile: Bottom navigation bar (iOS/Android style) or hamburger menu
+  - Desktop: Horizontal top navigation bar
+- Touch-friendly navigation with active states
+- Smooth transitions between views
+
+#### 4.2 Create Profile Page
+**Status**: ✅ AUTOMATIC
+**Action**: Display and edit user info, upload profile photo, update pieces order
+**File**: `app/(dashboard)/client/profile/page.tsx`
+**Components**: `components/client/ProfileForm.tsx`, `components/client/PiecesSelector.tsx`
+**API**: `app/api/users/[userId]/route.ts` (PUT update user)
+**Features**:
+- Pieces selector component: Radio buttons or dropdown for 1, 3, 5, or 8 pieces
+- Label: "Commander X pièce(s)"
+- When piecesOrdered is updated:
+  - Save to database
+  - Create notification to admin (type: PIECES_ORDER_UPDATED)
+  - Show success message
+- Fully responsive form layout
+- Mobile: Full-width inputs, vertical stacking
+- Desktop: Optimal width, organized sections
+- Touch-friendly photo upload and selection
+
+#### 4.3 Create Mes Pièces Page
+**Status**: ✅ AUTOMATIC
+**Action**: Grid of uploaded photos, upload new photo button
+**File**: `app/(dashboard)/client/mes-pieces/page.tsx`
+**Components**: 
+- `components/client/PhotosGrid.tsx`
+- `components/client/PhotoUpload.tsx`
+**Features**:
+- Responsive photo grid:
+  - Mobile: 1-2 columns
+  - Tablet: 2-3 columns
+  - Desktop: 3-4 columns
+- Touch-friendly photo interactions
+- Swipe gestures for photo viewing (optional)
+- Mobile-optimized upload button
+
+#### 4.4 Implement Photo Upload Component
+**Status**: ✅ AUTOMATIC
+**Action**: Drag & drop, upload to Cloudinary, background removal, preview, confirm/cancel
+**Components**: `components/client/PhotoUpload.tsx`
+**API**: `app/api/photos/upload/route.ts`
+**Features**: 
+- Upload to Cloudinary
+- Background removal
+- Preview both versions
+- Confirm/cancel
+- Responsive upload interface:
+  - Mobile: Tap to select from camera/gallery, full-screen preview
+  - Desktop: Drag & drop area, inline preview
+- Touch-friendly buttons and interactions
+- Mobile camera integration (access device camera)
+
+#### 4.5 Implement Photo Upload API
+**Status**: ✅ AUTOMATIC
+**Action**: Handle upload, background removal, save to DB, create notification
+**File**: `app/api/photos/upload/route.ts`
+
+#### 4.6 Create Propositions Page
+**Status**: ✅ AUTOMATIC
+**Action**: Grid of propositions with status buttons
+**File**: `app/(dashboard)/client/propositions/page.tsx`
+**Components**: `components/client/PropositionsGrid.tsx`, `components/client/PropositionCard.tsx`
+**API**: `app/api/propositions/[userId]/route.ts` (GET user propositions)
+**Features**:
+- Responsive grid layout:
+  - Mobile: 1 column (full-width cards)
+  - Tablet: 2 columns
+  - Desktop: 2-3 columns
+- Touch-friendly status buttons
+- Mobile-optimized product cards
+- Swipe actions for quick status changes (optional)
+
+#### 4.7 Implement Proposition Status Update
+**Status**: ✅ AUTOMATIC
+**Action**: Update status (refusée/intéressé/acheté), send notification
+**API**: `app/api/propositions/[propositionId]/route.ts` (PATCH update status)
+**Features**:
+- When status changes to ACHETE, progress count (X) automatically updates in admin's clients table
+- Progress is calculated dynamically on each clients table load
+
+---
+
+### PHASE 5: BACKGROUND REMOVAL & IMAGE PROCESSING
+
+#### 5.1 Implement Cloudinary Background Removal
+**Status**: ✅ AUTOMATIC
+**Action**: Use Cloudinary API for automatic background removal
+**File**: `lib/cloudinary.ts`
+**Function**: `removeBackground(imageUrl)`
+
+#### 5.2 Add Fallback (Remove.bg)
+**Status**: ✅ AUTOMATIC (optional)
+**Action**: If Cloudinary fails, use remove.bg API
+**File**: `lib/removebg.ts`
+
+---
+
+### PHASE 6: NOTIFICATIONS SYSTEM
+
+#### 6.1 Create Notification API
+**Status**: ✅ AUTOMATIC
+**Action**: CRUD operations for notifications
+**File**: `app/api/notifications/route.ts`
+**Features**: Handle all notification types including PIECES_ORDER_UPDATED
+
+#### 6.2 Implement Real-time Notifications
+**Status**: ✅ AUTOMATIC
+**Action**: Server-Sent Events or WebSocket
+**File**: `app/api/notifications/stream/route.ts`
+**Components**: Hook for client-side: `lib/hooks/useNotifications.ts`
+
+#### 6.3 Add Notification Badge
+**Status**: ✅ AUTOMATIC
+**Action**: Show unread count in navbar
+**Components**: Update `AdminNavbar.tsx`, `ClientNavbar.tsx`
+
+---
+
+### PHASE 7: PWA CONFIGURATION
+
+#### 7.1 Configure next-pwa
+**Status**: ✅ AUTOMATIC
+**Action**: Setup PWA plugin in next.config.js
+**File**: `next.config.js`
+
+#### 7.2 Create App Icons
+**Status**: ⚠️ MANUAL (or provide placeholder)
+**Action**: Generate 192x192 and 512x512 icons
+**Location**: `public/icons/`
+**Manual Steps**:
+1. Design app icon
+2. Generate sizes using online tool
+3. Place in `public/icons/`
+
+#### 7.3 Create Manifest
+**Status**: ✅ AUTOMATIC
+**Action**: Create manifest.json with app details
+**File**: `public/manifest.json`
+**Features**:
+- Include all required PWA fields
+- Set display mode: "standalone" for app-like experience
+- Configure theme colors for mobile status bar
+- Add all required icon sizes for iOS/Android
+- Set orientation: "portrait" and "landscape" support
+
+#### 7.4 Test PWA Installation
+**Status**: ⚠️ MANUAL
+**Action**: Test on iOS/Android devices
+**Manual Steps**:
+1. Build production: `npm run build`
+2. Test on device
+3. Verify install prompt appears
+
+---
+
+### PHASE 8: STYLING & POLISH
+
+#### 8.1 Apply Design System
+**Status**: ✅ AUTOMATIC
+**Action**: Implement minimalist, premium, clean design
+**Files**: All component files
+**Guidelines**: Follow styling guidelines in this file
+
+#### 8.2 Add Animations
+**Status**: ✅ AUTOMATIC
+**Action**: Smooth transitions, hover effects
+**Files**: Component files, `globals.css`
+
+#### 8.3 Responsive Design (Mobile & Desktop)
+**Status**: ✅ AUTOMATIC
+**Action**: Ensure ABSOLUTE responsiveness for all components, layouts, and pages on both mobile and desktop
+**Requirements**:
+- Mobile-first responsive design (320px to 768px)
+- Tablet responsiveness (768px to 1024px)
+- Desktop responsiveness (1024px+)
+- All components must adapt perfectly to any screen size
+- Touch-friendly interactions on mobile
+- Desktop-optimized interactions on larger screens
+- Test on: iPhone (iOS), Android phones, Tablets, Laptops, Desktops
+
+#### 8.4 Add Loading States
+**Status**: ✅ AUTOMATIC
+**Action**: Loading spinners, skeletons
+**Components**: Shared loading components
+
+#### 8.5 Add Error Handling
+**Status**: ✅ AUTOMATIC
+**Action**: Error boundaries, error messages
+**Components**: Error components
+
+---
+
+### PHASE 9: TESTING & DEPLOYMENT
+
+#### 9.1 Test All Flows
+**Status**: ⚠️ MANUAL
+**Action**: Test complete user journeys on all platforms
+**Manual Steps**:
+1. Test on mobile browser (iOS Safari, Chrome Android)
+2. Test on desktop browser (Chrome, Firefox, Safari, Edge)
+3. Test as installed PWA (iOS home screen, Android home screen)
+4. Test responsive layouts at all breakpoints
+5. Register as client (mobile & desktop)
+6. Upload photos (mobile camera & desktop drag-drop)
+7. Login as admin (mobile & desktop)
+8. View notifications (mobile & desktop)
+9. Create propositions (mobile & desktop)
+10. Test client responses (mobile & desktop)
+11. Verify all notifications work across platforms
+12. Test touch interactions on mobile
+13. Test keyboard interactions on desktop
+
+#### 9.2 Fix Bugs
+**Status**: ✅ AUTOMATIC (as discovered)
+**Action**: Fix any issues found during testing
+
+#### 9.3 Setup Production Environment
+**Status**: ⚠️ MANUAL
+**Action**: 
+- Deploy to Vercel
+- Configure production database
+- Add production environment variables
+- Test production build
+
+#### 9.4 Deploy to Vercel
+**Status**: ⚠️ MANUAL
+**Action**: 
+- Connect GitHub repo to Vercel
+- Configure environment variables
+- Deploy
+**Manual Steps**:
+1. Push code to GitHub
+2. Import to Vercel
+3. Add all env variables
+4. Deploy
+
+---
+
+## CRITICAL RULES
+
+1. **ZERO MOCK DATA**: All data must come from real database, real APIs, real services
+2. **French Language**: All UI text, labels, buttons, messages in French
+3. **Space Grotesk Font**: Used throughout entire application
+4. **Full Responsiveness**: ALL components, layouts, and pages must be ABSOLUTELY responsive for both mobile and desktop. Mobile-first approach with perfect desktop experience. App must work flawlessly on: mobile browsers, desktop browsers, and as installed PWA app.
+5. **White Mode**: Default light theme (no dark mode)
+6. **Real Background Removal**: Use Cloudinary API, not mock/placeholder
+7. **Real Notifications**: Real-time notifications, not simulated
+8. **Real File Uploads**: Actual Cloudinary integration, not local storage
+9. **Real Authentication**: NextAuth with real sessions, not mock auth
+10. **Production-Ready**: Code must be production-ready, not prototype
+
+---
+
+## DEVELOPMENT WORKFLOW
+
+1. Always check `.cursorrules` before making changes
+2. Follow the TODO list order
+3. Mark completed items
+4. Test each feature before moving to next
+5. Use TypeScript strictly (no `any` types)
+6. Write clean, maintainable code
+7. Add proper error handling
+8. Follow French language requirement
+9. Ensure all API calls are real, no mocks
+10. **Mobile-first development**: Always build responsive features for mobile first, then enhance for desktop
+11. **Test on multiple devices**: Test on actual mobile devices, tablets, and desktop browsers
+12. **Touch-friendly**: Ensure all interactive elements are at least 44x44px on mobile
+13. **Responsive images**: Use Next.js Image component with responsive srcset
+14. **Viewport meta**: Always include proper viewport meta tag
+15. **PWA testing**: Test installability on both iOS and Android devices
+
+---
+
+## FILE NAMING CONVENTIONS
+
+- Components: PascalCase (`PhotoUpload.tsx`)
+- Pages: lowercase (`page.tsx`, `layout.tsx`)
+- API routes: lowercase (`route.ts`)
+- Utilities: camelCase (`cloudinary.ts`, `auth.ts`)
+- Types: PascalCase (`types.ts` or inline in components)
+
+---
+
+## END OF CURSORRULES
+
+This file must be referenced for ALL code generation and modifications in this project.
+

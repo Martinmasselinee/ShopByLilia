@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  fullName      String
+  phoneWhatsApp String
+  role          UserRole @default(CLIENT)
+  profilePhoto  String?
+  piecesOrdered Int      @default(1)
+  expectations  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  photos        Photo[]
+  propositions  Proposition[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+model Photo {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cloudinaryId  String
+  url           String
+  urlWithoutBg  String
+  createdAt     DateTime @default(now())
+
+  @@map("photos")
+}
+
+model Proposition {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminId     String
+  cloudinaryId String
+  url         String
+  productName String
+  productPrice String
+  productUrl  String
+  status      PropositionStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("propositions")
+}
+
+enum PropositionStatus {
+  PENDING
+  REFUSEE
+  INTERESSE
+  ACHETE
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  adminId   String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  message   String
+  photoId   String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  NEW_PHOTO_UPLOADED
+  PROPOSITION_RESPONSE
+  PIECES_ORDER_UPDATED
+}
+
