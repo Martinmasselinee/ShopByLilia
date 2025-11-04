@@ -43,7 +43,7 @@ export function useNotifications() {
         if (error.name === 'AbortError') {
           console.error('Notifications fetch timeout')
         } else {
-          console.error('Error fetching notifications:', error)
+        console.error('Error fetching notifications:', error)
         }
       }
     }

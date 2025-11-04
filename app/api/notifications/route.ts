@@ -12,10 +12,10 @@ export async function GET(request: Request) {
     )
     
     const session = await Promise.race([sessionPromise, timeoutPromise]) as any
-    
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+  
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
 
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
@@ -25,34 +25,34 @@ export async function GET(request: Request) {
 
     // Add timeout to database query
     const queryPromise = (async () => {
-      if (session.user.role === 'ADMIN') {
-        // Admin sees all notifications or admin-specific ones
+    if (session.user.role === 'ADMIN') {
+      // Admin sees all notifications or admin-specific ones
         return await prisma.notification.findMany({
-          where: adminOnly ? { adminId: { not: null } } : {},
-          include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-                profilePhoto: true,
-              }
+        where: adminOnly ? { adminId: { not: null } } : {},
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              profilePhoto: true,
             }
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: 100,
-        })
-      } else if (userId && userId === session.user.id) {
-        // Client sees only their notifications
+          }
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 100,
+      })
+    } else if (userId && userId === session.user.id) {
+      // Client sees only their notifications
         return await prisma.notification.findMany({
-          where: { userId },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        })
-      } else {
+        where: { userId },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+    } else {
         throw new Error('Unauthorized')
       }
     })()
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
     }
-    
+
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des notifications' },
       { status: 500 }

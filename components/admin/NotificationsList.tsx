@@ -51,11 +51,33 @@ export function NotificationsList() {
     ? notifications.filter(n => !n.read)
     : notifications
 
-  const getNotificationLink = (notification: Notification) => {
-    if (notification.user?.id) {
-      return `/admin/echanges/${notification.user.id}`
+  const getActionButton = (notification: Notification) => {
+    if (!notification.user?.id) return null
+
+    const baseClasses = "px-4 py-2 rounded-lg font-medium transition-colors text-sm min-h-[44px] flex items-center justify-center whitespace-nowrap"
+
+    switch (notification.type) {
+      case 'NEW_PHOTO_UPLOADED':
+        return {
+          text: 'Voir les photos',
+          href: `/admin/echanges/${notification.user.id}`,
+          classes: `${baseClasses} bg-primary text-white hover:opacity-90`
+        }
+      case 'PROPOSITION_RESPONSE':
+        return {
+          text: 'Voir l\'échange',
+          href: `/admin/echanges/${notification.user.id}`,
+          classes: `${baseClasses} bg-primary text-white hover:opacity-90`
+        }
+      case 'PIECES_ORDER_UPDATED':
+        return {
+          text: 'Voir le profil',
+          href: `/admin/clients`,
+          classes: `${baseClasses} bg-accent text-text hover:bg-accent/70`
+        }
+      default:
+        return null
     }
-    return '/admin/clients'
   }
 
   if (isLoading) {
@@ -78,38 +100,53 @@ export function NotificationsList() {
       </div>
 
       <div className="space-y-2">
-        {filteredNotifications.map((notification) => (
-          <Link
-            key={notification.id}
-            href={getNotificationLink(notification)}
-            className={`block p-4 rounded-lg border transition-colors min-h-[44px] ${
-              notification.read
-                ? 'bg-white border-accent hover:bg-accent/30'
-                : 'bg-primary/5 border-primary/20 hover:bg-primary/10'
-            }`}
-          >
-            <div className="flex items-start space-x-3">
-              {notification.user?.profilePhoto && (
-                <Image
-                  src={notification.user.profilePhoto}
-                  alt={notification.user.fullName}
-                  width={40}
-                  height={40}
-                  className="rounded-full"
-                />
-              )}
-              <div className="flex-1">
-                <p className="text-text font-medium">{notification.message}</p>
-                <p className="text-sm text-text/60 mt-1">
-                  {new Date(notification.createdAt).toLocaleString('fr-FR')}
-                </p>
+        {filteredNotifications.map((notification) => {
+          const actionButton = getActionButton(notification)
+          
+          return (
+            <div
+              key={notification.id}
+              className={`p-4 rounded-lg border transition-colors min-h-[44px] ${
+                notification.read
+                  ? 'bg-white border-accent'
+                  : 'bg-primary/5 border-primary/20'
+              }`}
+            >
+              <div className="flex items-start space-x-3">
+                {notification.user?.profilePhoto && (
+                  <Image
+                    src={notification.user.profilePhoto}
+                    alt={notification.user.fullName}
+                    width={40}
+                    height={40}
+                    className="rounded-full flex-shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-text font-medium">{notification.message}</p>
+                  <p className="text-sm text-text/60 mt-1">
+                    {new Date(notification.createdAt).toLocaleString('fr-FR')}
+                  </p>
+                  
+                  {/* Action button */}
+                  {actionButton && (
+                    <div className="mt-3">
+                      <Link
+                        href={actionButton.href}
+                        className={actionButton.classes}
+                      >
+                        {actionButton.text}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+                {!notification.read && (
+                  <div className="w-3 h-3 bg-primary rounded-full flex-shrink-0"></div>
+                )}
               </div>
-              {!notification.read && (
-                <div className="w-3 h-3 bg-primary rounded-full"></div>
-              )}
             </div>
-          </Link>
-        ))}
+          )
+        })}
       </div>
 
       {filteredNotifications.length === 0 && (
