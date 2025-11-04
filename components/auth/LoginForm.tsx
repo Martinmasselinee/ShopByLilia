@@ -59,11 +59,33 @@ export function LoginForm() {
       }
 
       console.log('[LOGIN] Login successful! Waiting for session to establish...')
-      // Wait for session to be established server-side before redirecting
-      // This prevents middleware from blocking the redirect
-      await new Promise(resolve => setTimeout(resolve, 1500))
       
-      console.log('[LOGIN] Session should be established now, redirecting...')
+      // Poll session API until session is established (max 10 attempts = 5 seconds)
+      let sessionEstablished = false
+      for (let i = 0; i < 10; i++) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+        console.log(`[LOGIN] Checking session (attempt ${i + 1}/10)...`)
+        
+        try {
+          const sessionCheck = await fetch('/api/auth/session')
+          if (sessionCheck.ok) {
+            const sessionData = await sessionCheck.json()
+            console.log('[LOGIN] Session check response:', { hasUser: !!sessionData?.user })
+            if (sessionData?.user) {
+              sessionEstablished = true
+              console.log('[LOGIN] Session established!')
+              break
+            }
+          }
+        } catch (e) {
+          console.log('[LOGIN] Session check failed:', e)
+        }
+      }
+      
+      if (!sessionEstablished) {
+        console.warn('[LOGIN] Session not established after 5 seconds, redirecting anyway...')
+      }
+      
       setIsLoading(false)
       console.log('[LOGIN] Redirecting to /admin/clients (middleware will redirect based on role)')
       window.location.href = '/admin/clients'
