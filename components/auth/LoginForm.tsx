@@ -21,11 +21,21 @@ export function LoginForm() {
 
     try {
       console.log('[LOGIN] Calling signIn...')
-      const result = await signIn('credentials', {
+      
+      // Add timeout to signIn to prevent infinite loading
+      const signInPromise = signIn('credentials', {
         email,
         password,
         redirect: false,
       })
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('SignIn timeout after 10 seconds'))
+        }, 10000)
+      })
+      
+      const result = await Promise.race([signInPromise, timeoutPromise]) as any
       console.log('[LOGIN] signIn result:', { 
         ok: result?.ok, 
         error: result?.error, 
@@ -101,9 +111,13 @@ export function LoginForm() {
         console.log('[LOGIN] Redirecting to /client/profile (catch fallback)')
         window.location.href = '/client/profile'
       }
-    } catch (err) {
-      console.error('[LOGIN] Login error:', err)
-      setError('Une erreur est survenue')
+    } catch (timeoutError: any) {
+      console.error('[LOGIN] signIn timeout or error:', timeoutError)
+      if (timeoutError?.message?.includes('timeout')) {
+        setError('La connexion a pris trop de temps. Vérifiez votre connexion internet et les logs Vercel.')
+      } else {
+        setError('Une erreur est survenue lors de la connexion.')
+      }
       setIsLoading(false)
     }
   }

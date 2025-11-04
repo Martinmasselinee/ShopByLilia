@@ -25,9 +25,21 @@ export const authOptions: NextAuthOptions = {
 
         try {
           console.log('[AUTH] Searching for user in database...')
-          const user = await prisma.user.findUnique({
+          console.log('[AUTH] DATABASE_URL configured:', !!process.env.DATABASE_URL)
+          console.log('[AUTH] NEXTAUTH_SECRET configured:', !!process.env.NEXTAUTH_SECRET)
+          
+          // Add timeout wrapper
+          const dbQuery = prisma.user.findUnique({
             where: { email: credentials.email }
           })
+          
+          const timeout = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('Database query timeout after 5 seconds'))
+            }, 5000)
+          })
+          
+          const user = await Promise.race([dbQuery, timeout]) as any
 
           if (!user) {
             console.error('[AUTH] User not found:', credentials.email)
