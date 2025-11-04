@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Image from 'next/image'
 import { PropositionUpload } from './PropositionUpload'
 
@@ -26,11 +27,22 @@ interface EchangeDetailProps {
 }
 
 export function EchangeDetail({ userId }: EchangeDetailProps) {
+  const { data: session, status } = useSession()
   const [photos, setPhotos] = useState<Photo[]>([])
   const [propositions, setPropositions] = useState<Proposition[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Wait for session to be loaded before fetching
+    if (status === 'loading') {
+      return
+    }
+
+    if (!session) {
+      setIsLoading(false)
+      return
+    }
+
     Promise.all([
       fetch(`/api/photos/${userId}`).then(res => res.json()),
       fetch(`/api/propositions/${userId}`).then(res => res.json()),
@@ -44,7 +56,7 @@ export function EchangeDetail({ userId }: EchangeDetailProps) {
         console.error(err)
         setIsLoading(false)
       })
-  }, [userId])
+  }, [userId, session, status])
 
   if (isLoading) {
     return <div className="text-center py-8">Chargement...</div>
