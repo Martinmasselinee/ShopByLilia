@@ -29,18 +29,10 @@ export const authOptions: NextAuthOptions = {
           console.log('[AUTH] DATABASE_URL configured:', !!process.env.DATABASE_URL)
           console.log('[AUTH] NEXTAUTH_SECRET configured:', !!process.env.NEXTAUTH_SECRET)
           
-          // Add timeout wrapper
-          const dbQuery = prisma.user.findUnique({
+          // Query user directly - Prisma will handle connection pooling
+          const user = await prisma.user.findUnique({
             where: { email: credentials.email }
           })
-          
-          const timeout = new Promise((_, reject) => {
-            setTimeout(() => {
-              reject(new Error('Database query timeout after 5 seconds'))
-            }, 5000)
-          })
-          
-          const user = await Promise.race([dbQuery, timeout]) as any
 
           if (!user) {
             console.error('[AUTH] User not found:', credentials.email)
@@ -101,5 +93,17 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
+  useSecureCookies: process.env.NEXTAUTH_URL?.startsWith('https://'),
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false,
+      },
+    },
+  },
 }
 
