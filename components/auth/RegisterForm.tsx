@@ -44,10 +44,18 @@ export function RegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('[REGISTER] Starting registration process...', { 
+      email: formData.email, 
+      fullName: formData.fullName,
+      hasPhoto: !!formData.profilePhoto,
+      piecesOrdered: formData.piecesOrdered,
+      timestamp: new Date().toISOString()
+    })
     setError('')
     setIsLoading(true)
 
     try {
+      console.log('[REGISTER] Preparing FormData...')
       const formDataToSend = new FormData()
       formDataToSend.append('email', formData.email)
       formDataToSend.append('password', formData.password)
@@ -57,33 +65,68 @@ export function RegisterForm() {
       formDataToSend.append('piecesOrdered', formData.piecesOrdered.toString())
       if (formData.profilePhoto) {
         formDataToSend.append('profilePhoto', formData.profilePhoto)
+        console.log('[REGISTER] Photo added to FormData:', {
+          name: formData.profilePhoto.name,
+          size: formData.profilePhoto.size,
+          type: formData.profilePhoto.type
+        })
       }
 
+      console.log('[REGISTER] Sending POST request to /api/auth/register...')
+      const startTime = Date.now()
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         body: formDataToSend,
+      })
+      const duration = Date.now() - startTime
+      console.log('[REGISTER] Response received:', { 
+        ok: response.ok, 
+        status: response.status, 
+        statusText: response.statusText,
+        duration: `${duration}ms`,
+        timestamp: new Date().toISOString()
       })
 
       // Check if response is ok before parsing JSON
       if (!response.ok) {
         let errorMessage = 'Une erreur est survenue'
         try {
-          const errorData = await response.json()
+          const errorText = await response.text()
+          console.error('[REGISTER] Error response text:', errorText)
+          const errorData = JSON.parse(errorText)
           errorMessage = errorData.error || errorMessage
-        } catch {
+          console.error('[REGISTER] Parsed error:', errorData)
+        } catch (parseError) {
+          console.error('[REGISTER] Failed to parse error response:', parseError)
           errorMessage = `Erreur ${response.status}: ${response.statusText}`
         }
+        console.error('[REGISTER] Registration failed:', {
+          status: response.status,
+          error: errorMessage
+        })
         setError(errorMessage)
         setIsLoading(false)
         return
       }
 
+      console.log('[REGISTER] Parsing success response...')
       const data = await response.json()
+      console.log('[REGISTER] Registration successful:', {
+        message: data.message,
+        userId: data.user?.id,
+        timestamp: new Date().toISOString()
+      })
 
       // Auto-login after registration
+      console.log('[REGISTER] Redirecting to /client/profile...')
       router.push('/client/profile')
     } catch (err) {
-      console.error('Registration error:', err)
+      console.error('[REGISTER] Registration error:', err)
+      console.error('[REGISTER] Error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : undefined,
+        timestamp: new Date().toISOString()
+      })
       setError('Erreur de connexion. Vérifiez votre connexion internet.')
       setIsLoading(false)
     }

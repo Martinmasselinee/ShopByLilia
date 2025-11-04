@@ -12,34 +12,41 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
-        try {
-          if (!credentials?.email || !credentials?.password) {
-            console.log('Missing credentials')
-            return null
-          }
+        console.log('[AUTH] authorize called:', { 
+          email: credentials?.email, 
+          hasPassword: !!credentials?.password,
+          timestamp: new Date().toISOString()
+        })
+        
+        if (!credentials?.email || !credentials?.password) {
+          console.error('[AUTH] Missing credentials')
+          return null
+        }
 
-          console.log('Looking for user:', credentials.email)
+        try {
+          console.log('[AUTH] Searching for user in database...')
           const user = await prisma.user.findUnique({
             where: { email: credentials.email }
           })
 
           if (!user) {
-            console.log('User not found:', credentials.email)
+            console.error('[AUTH] User not found:', credentials.email)
             return null
           }
 
-          console.log('User found, checking password')
+          console.log('[AUTH] User found:', { id: user.id, email: user.email, role: user.role })
+          console.log('[AUTH] Comparing password...')
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
             user.password
           )
 
           if (!isPasswordValid) {
-            console.log('Invalid password')
+            console.error('[AUTH] Invalid password')
             return null
           }
 
-          console.log('Login successful for:', user.email)
+          console.log('[AUTH] Password valid, returning user')
           return {
             id: user.id,
             email: user.email,
@@ -47,7 +54,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
           }
         } catch (error) {
-          console.error('Authorize error:', error)
+          console.error('[AUTH] authorize error:', error)
           return null
         }
       }

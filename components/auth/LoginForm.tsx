@@ -15,59 +15,94 @@ export function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('[LOGIN] Starting login process...', { email, timestamp: new Date().toISOString() })
     setError('')
     setIsLoading(true)
 
     try {
+      console.log('[LOGIN] Calling signIn...')
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       })
+      console.log('[LOGIN] signIn result:', { 
+        ok: result?.ok, 
+        error: result?.error, 
+        status: result?.status,
+        url: result?.url,
+        timestamp: new Date().toISOString()
+      })
 
       if (result?.error) {
+        console.error('[LOGIN] signIn error:', result.error)
         setError('Email ou mot de passe incorrect')
         setIsLoading(false)
         return
       }
 
       if (!result?.ok) {
+        console.error('[LOGIN] signIn not ok:', result)
         setError('Erreur de connexion')
         setIsLoading(false)
         return
       }
 
+      console.log('[LOGIN] Waiting for session to be established...')
       // Wait a bit for session to be established, then fetch user role
       await new Promise(resolve => setTimeout(resolve, 200))
       
       try {
+        console.log('[LOGIN] Fetching user role from /api/auth/user...')
         const userResponse = await fetch('/api/auth/user')
+        console.log('[LOGIN] User API response:', { 
+          ok: userResponse.ok, 
+          status: userResponse.status, 
+          statusText: userResponse.statusText,
+          timestamp: new Date().toISOString()
+        })
+        
         if (!userResponse.ok) {
+          const errorText = await userResponse.text()
+          console.error('[LOGIN] User API error:', { 
+            status: userResponse.status, 
+            error: errorText 
+          })
           // If API fails, try to redirect anyway - session should work
           // Middleware will handle redirect based on role
           setIsLoading(false)
+          console.log('[LOGIN] Redirecting to /client/profile (fallback)')
           window.location.href = '/client/profile'
           return
         }
         
         const userData = await userResponse.json()
+        console.log('[LOGIN] User data received:', { 
+          id: userData?.id, 
+          email: userData?.email, 
+          role: userData?.role,
+          timestamp: new Date().toISOString()
+        })
         
         setIsLoading(false)
         
         if (userData?.role === 'ADMIN') {
+          console.log('[LOGIN] Redirecting to /admin/clients')
           window.location.href = '/admin/clients'
         } else {
+          console.log('[LOGIN] Redirecting to /client/profile')
           window.location.href = '/client/profile'
         }
       } catch (fetchError) {
         // If fetch fails, redirect to client profile as fallback
         // The session should still work and middleware will redirect if needed
-        console.error('Error fetching user role:', fetchError)
+        console.error('[LOGIN] Error fetching user role:', fetchError)
         setIsLoading(false)
+        console.log('[LOGIN] Redirecting to /client/profile (catch fallback)')
         window.location.href = '/client/profile'
       }
     } catch (err) {
-      console.error('Login error:', err)
+      console.error('[LOGIN] Login error:', err)
       setError('Une erreur est survenue')
       setIsLoading(false)
     }
