@@ -21,6 +21,10 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     return config
   },
+  // Disable Turbopack to use webpack (required for next-pwa)
+  experimental: {
+    turbo: false,
+  },
 }
 
 module.exports = withPWA(nextConfig)
