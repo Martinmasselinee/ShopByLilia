@@ -19,41 +19,37 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
-      console.log('Attempting login for:', email)
-      
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       })
 
-      console.log('SignIn result:', result)
-
       if (result?.error) {
-        console.error('Login error:', result.error)
-        setError(`Erreur de connexion: ${result.error}`)
+        setError('Email ou mot de passe incorrect')
         setIsLoading(false)
         return
       }
 
       if (!result?.ok) {
-        console.error('Login failed:', result)
-        setError('Échec de la connexion. Vérifiez vos identifiants.')
+        setError('Erreur de connexion')
         setIsLoading(false)
         return
       }
 
-      // Fetch user role to redirect correctly
+      // Wait a bit for session to be established, then fetch user role
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
       try {
         const userResponse = await fetch('/api/auth/user')
-        console.log('User API response status:', userResponse.status)
-        
         if (!userResponse.ok) {
-          throw new Error(`HTTP ${userResponse.status}`)
+          // If API fails, try to redirect anyway - session should work
+          router.push('/client/profile')
+          router.refresh()
+          return
         }
         
         const userData = await userResponse.json()
-        console.log('User data:', userData)
         
         if (userData?.role === 'ADMIN') {
           router.push('/admin/clients')
@@ -61,15 +57,16 @@ export function LoginForm() {
           router.push('/client/profile')
         }
         router.refresh()
-      } catch (userErr) {
-        console.error('Error fetching user:', userErr)
-        // Still redirect even if user fetch fails
+      } catch (fetchError) {
+        // If fetch fails, redirect to client profile as fallback
+        // The session should still work and middleware will redirect if needed
+        console.error('Error fetching user role:', fetchError)
         router.push('/client/profile')
         router.refresh()
       }
     } catch (err) {
-      console.error('Login exception:', err)
-      setError('Erreur de connexion. Vérifiez votre connexion internet.')
+      console.error('Login error:', err)
+      setError('Une erreur est survenue')
       setIsLoading(false)
     }
   }
