@@ -58,59 +58,11 @@ export function LoginForm() {
         return
       }
 
-      console.log('[LOGIN] Waiting for session to be established...')
-      // Wait a bit for session to be established, then fetch user role
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
-      try {
-        console.log('[LOGIN] Fetching user role from /api/auth/user...')
-        const userResponse = await fetch('/api/auth/user')
-        console.log('[LOGIN] User API response:', { 
-          ok: userResponse.ok, 
-          status: userResponse.status, 
-          statusText: userResponse.statusText,
-          timestamp: new Date().toISOString()
-        })
-        
-        if (!userResponse.ok) {
-          const errorText = await userResponse.text()
-          console.error('[LOGIN] User API error:', { 
-            status: userResponse.status, 
-            error: errorText 
-          })
-          // If API fails, try to redirect anyway - session should work
-          // Middleware will handle redirect based on role
-          setIsLoading(false)
-          console.log('[LOGIN] Redirecting to /client/profile (fallback)')
-          window.location.href = '/client/profile'
-          return
-        }
-        
-        const userData = await userResponse.json()
-        console.log('[LOGIN] User data received:', { 
-          id: userData?.id, 
-          email: userData?.email, 
-          role: userData?.role,
-          timestamp: new Date().toISOString()
-        })
-        
-        setIsLoading(false)
-        
-        if (userData?.role === 'ADMIN') {
-          console.log('[LOGIN] Redirecting to /admin/clients')
-          window.location.href = '/admin/clients'
-        } else {
-          console.log('[LOGIN] Redirecting to /client/profile')
-          window.location.href = '/client/profile'
-        }
-      } catch (fetchError) {
-        // If fetch fails, redirect to client profile as fallback
-        // The session should still work and middleware will redirect if needed
-        console.error('[LOGIN] Error fetching user role:', fetchError)
-        setIsLoading(false)
-        console.log('[LOGIN] Redirecting to /client/profile (catch fallback)')
-        window.location.href = '/client/profile'
-      }
+      console.log('[LOGIN] Login successful! Redirecting...')
+      // Redirect to admin/clients - middleware will handle role-based redirect
+      setIsLoading(false)
+      console.log('[LOGIN] Redirecting to /admin/clients (middleware will redirect based on role)')
+      window.location.href = '/admin/clients'
     } catch (timeoutError: any) {
       console.error('[LOGIN] signIn timeout or error:', timeoutError)
       if (timeoutError?.message?.includes('timeout')) {
