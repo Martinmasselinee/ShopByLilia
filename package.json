@@ -12,6 +12,13 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "next lint",
+    "update-admin-password": "tsx scripts/update-admin-password.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
