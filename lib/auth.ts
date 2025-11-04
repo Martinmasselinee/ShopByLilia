@@ -41,13 +41,20 @@ export const authOptions: NextAuthOptions = {
 
           console.log('[AUTH] User found:', { id: user.id, email: user.email, role: user.role })
           console.log('[AUTH] Comparing password...')
+          console.log('[AUTH] Password provided length:', credentials.password.length)
+          console.log('[AUTH] Stored password hash length:', user.password.length)
+          console.log('[AUTH] Stored password hash preview:', user.password.substring(0, 20) + '...')
+          
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
             user.password
           )
 
+          console.log('[AUTH] Password comparison result:', isPasswordValid)
+
           if (!isPasswordValid) {
-            console.error('[AUTH] Invalid password')
+            console.error('[AUTH] Invalid password - hash does not match provided password')
+            console.error('[AUTH] Expected password from env:', process.env.ADMIN_PASSWORD ? 'SET' : 'NOT SET')
             return null
           }
 

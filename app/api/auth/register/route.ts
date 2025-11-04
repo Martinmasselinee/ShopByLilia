@@ -5,9 +5,18 @@ import { uploadImage } from '@/lib/cloudinary'
 
 export async function POST(request: NextRequest) {
   console.log('[API REGISTER] Request received:', { timestamp: new Date().toISOString() })
+  console.log('[API REGISTER] DATABASE_URL configured:', !!process.env.DATABASE_URL)
+  console.log('[API REGISTER] CLOUDINARY_CLOUD_NAME configured:', !!process.env.CLOUDINARY_CLOUD_NAME)
+  
+  // Add timeout wrapper
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Registration timeout after 30 seconds')), 30000)
+  })
+  
   try {
     console.log('[API REGISTER] Parsing formData...')
-    const formData = await request.formData()
+    const formDataPromise = request.formData()
+    const formData = await Promise.race([formDataPromise, timeoutPromise]) as FormData
     console.log('[API REGISTER] FormData parsed')
     
     const email = formData.get('email') as string
