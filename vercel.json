@@ -1,14 +1,23 @@
 {
   "functions": {
     "app/api/auth/[...nextauth]/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 30
     },
     "app/api/auth/register/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 30
+    },
+    "app/api/users/route.ts": {
+      "maxDuration": 15
+    },
+    "app/api/notifications/route.ts": {
+      "maxDuration": 15
     },
     "app/api/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 20
     }
+  },
+  "env": {
+    "PRISMA_CLIENT_ENGINE_TYPE": "dataproxy"
   }
 }
 

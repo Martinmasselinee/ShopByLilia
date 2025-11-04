@@ -12,46 +12,52 @@ interface Notification {
 }
 
 export function useNotifications() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    if (!session?.user) return
+    if (status === 'loading' || !session?.user) return
 
     // Fetch initial notifications
     const fetchNotifications = async () => {
       try {
-        const response = await fetch('/api/notifications')
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
+
+        const response = await fetch('/api/notifications', {
+          signal: controller.signal,
+        })
+        
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          console.error('Failed to fetch notifications:', response.status)
+          return
+        }
+
         const data = await response.json()
         setNotifications(data)
         setUnreadCount(data.filter((n: Notification) => !n.read).length)
-      } catch (error) {
-        console.error('Error fetching notifications:', error)
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.error('Notifications fetch timeout')
+        } else {
+          console.error('Error fetching notifications:', error)
+        }
       }
     }
 
     fetchNotifications()
 
-    // Set up SSE connection for real-time updates
-    const eventSource = new EventSource('/api/notifications/stream')
-
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      if (data.type === 'notifications') {
-        setNotifications(data.notifications)
-        setUnreadCount(data.notifications.filter((n: Notification) => !n.read).length)
-      }
-    }
-
-    eventSource.onerror = () => {
-      eventSource.close()
-    }
+    // DISABLED SSE: Use polling instead to avoid Vercel serverless timeout issues
+    // Poll for new notifications every 30 seconds
+    const intervalId = setInterval(fetchNotifications, 30000)
 
     return () => {
-      eventSource.close()
+      clearInterval(intervalId)
     }
-  }, [session])
+  }, [session, status])
 
   return { notifications, unreadCount }
 }
