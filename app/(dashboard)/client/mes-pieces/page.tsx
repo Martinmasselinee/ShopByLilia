@@ -1,10 +1,15 @@
+'use client'
+
 import { PhotosGrid } from '@/components/client/PhotosGrid'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
 export default function MesPiecesPage() {
   return (
-    <div>
-      <PhotosGrid />
-    </div>
+    <ProtectedRoute requiredRole="CLIENT">
+      <div>
+        <PhotosGrid />
+      </div>
+    </ProtectedRoute>
   )
 }
 

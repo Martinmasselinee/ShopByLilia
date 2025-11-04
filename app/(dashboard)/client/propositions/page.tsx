@@ -1,10 +1,15 @@
+'use client'
+
 import { PropositionsGrid } from '@/components/client/PropositionsGrid'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
 export default function PropositionsPage() {
   return (
-    <div>
-      <PropositionsGrid />
-    </div>
+    <ProtectedRoute requiredRole="CLIENT">
+      <div>
+        <PropositionsGrid />
+      </div>
+    </ProtectedRoute>
   )
 }
 

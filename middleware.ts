@@ -47,12 +47,8 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    // Don't protect /admin/clients and /client/profile on first access
-    // Let the pages handle auth checks themselves
-    '/admin/notifications/:path*',
-    '/admin/echanges/:path*',
-    '/client/mes-pieces/:path*',
-    '/client/propositions/:path*'
+    // Middleware disabled - all pages handle auth checks themselves
+    // This prevents race conditions with NextAuth session cookies
   ]
 }
 

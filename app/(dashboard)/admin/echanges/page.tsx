@@ -1,10 +1,15 @@
+'use client'
+
 import { EchangesList } from '@/components/admin/EchangesList'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
 export default function EchangesPage() {
   return (
-    <div>
-      <EchangesList />
-    </div>
+    <ProtectedRoute requiredRole="ADMIN">
+      <div>
+        <EchangesList />
+      </div>
+    </ProtectedRoute>
   )
 }
 
