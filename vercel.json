@@ -12,6 +12,12 @@
     "app/api/notifications/route.ts": {
       "maxDuration": 15
     },
+    "app/api/photos/[userId]/route.ts": {
+      "maxDuration": 15
+    },
+    "app/api/propositions/[userId]/route.ts": {
+      "maxDuration": 15
+    },
     "app/api/**/*.ts": {
       "maxDuration": 20
     }

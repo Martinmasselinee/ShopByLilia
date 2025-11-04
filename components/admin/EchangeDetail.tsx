@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { PropositionUpload } from './PropositionUpload'
 
 interface Photo {
@@ -22,15 +23,29 @@ interface Proposition {
   createdAt: string
 }
 
+interface ClientInfo {
+  id: string
+  fullName: string
+  email: string
+  phoneWhatsApp: string
+  profilePhoto: string | null
+  piecesOrdered: number
+  photosCount: number
+  piecesPurchased: number
+  piecesProgress: string
+}
+
 interface EchangeDetailProps {
   userId: string
 }
 
 export function EchangeDetail({ userId }: EchangeDetailProps) {
   const { data: session, status } = useSession()
+  const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [propositions, setPropositions] = useState<Proposition[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Wait for session to be loaded before fetching
@@ -43,17 +58,34 @@ export function EchangeDetail({ userId }: EchangeDetailProps) {
       return
     }
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second total timeout
+
     Promise.all([
-      fetch(`/api/photos/${userId}`).then(res => res.json()),
-      fetch(`/api/propositions/${userId}`).then(res => res.json()),
+      fetch(`/api/users`, { signal: controller.signal }).then(res => res.json()),
+      fetch(`/api/photos/${userId}`, { signal: controller.signal }).then(res => res.json()),
+      fetch(`/api/propositions/${userId}`, { signal: controller.signal }).then(res => res.json()),
     ])
-      .then(([photosData, propositionsData]) => {
-        setPhotos(photosData)
-        setPropositions(propositionsData)
+      .then(([usersData, photosData, propositionsData]) => {
+        clearTimeout(timeoutId)
+        
+        // Find the specific client from users data
+        const client = Array.isArray(usersData) 
+          ? usersData.find((u: ClientInfo) => u.id === userId)
+          : null
+        
+        if (client) {
+          setClientInfo(client)
+        }
+        
+        setPhotos(Array.isArray(photosData) ? photosData : [])
+        setPropositions(Array.isArray(propositionsData) ? propositionsData : [])
         setIsLoading(false)
       })
       .catch(err => {
-        console.error(err)
+        clearTimeout(timeoutId)
+        console.error('Error fetching exchange data:', err)
+        setError(err.name === 'AbortError' ? 'Délai dépassé' : 'Erreur de chargement')
         setIsLoading(false)
       })
   }, [userId, session, status])
@@ -62,8 +94,55 @@ export function EchangeDetail({ userId }: EchangeDetailProps) {
     return <div className="text-center py-8">Chargement...</div>
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-500 mb-4">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-primary text-white rounded-lg"
+        >
+          Réessayer
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full space-y-8">
+      {/* Client Info Header */}
+      {clientInfo && (
+        <div className="bg-white border border-accent rounded-lg p-6">
+          <div className="flex items-center space-x-4">
+            {clientInfo.profilePhoto && (
+              <Image
+                src={clientInfo.profilePhoto}
+                alt={clientInfo.fullName}
+                width={80}
+                height={80}
+                className="rounded-full"
+              />
+            )}
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-text">{clientInfo.fullName}</h2>
+              <p className="text-text/60">{clientInfo.email}</p>
+              <a
+                href={`https://wa.me/${clientInfo.phoneWhatsApp.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline text-sm"
+              >
+                {clientInfo.phoneWhatsApp}
+              </a>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-primary">{clientInfo.piecesProgress}</div>
+              <p className="text-sm text-text/60">Pièces commandées</p>
+              <p className="text-xs text-text/60 mt-1">{clientInfo.photosCount} photo(s) uploadée(s)</p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Mobile: Stacked Layout */}
       <div className="md:hidden space-y-8">
         {/* Client Photos */}

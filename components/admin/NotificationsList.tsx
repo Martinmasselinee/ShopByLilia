@@ -105,28 +105,28 @@ export function NotificationsList() {
           
           return (
             <div
-              key={notification.id}
+            key={notification.id}
               className={`p-4 rounded-lg border transition-colors min-h-[44px] ${
-                notification.read
+              notification.read
                   ? 'bg-white border-accent'
                   : 'bg-primary/5 border-primary/20'
-              }`}
-            >
-              <div className="flex items-start space-x-3">
-                {notification.user?.profilePhoto && (
-                  <Image
-                    src={notification.user.profilePhoto}
-                    alt={notification.user.fullName}
-                    width={40}
-                    height={40}
+            }`}
+          >
+            <div className="flex items-start space-x-3">
+              {notification.user?.profilePhoto && (
+                <Image
+                  src={notification.user.profilePhoto}
+                  alt={notification.user.fullName}
+                  width={40}
+                  height={40}
                     className="rounded-full flex-shrink-0"
-                  />
-                )}
+                />
+              )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-text font-medium">{notification.message}</p>
-                  <p className="text-sm text-text/60 mt-1">
-                    {new Date(notification.createdAt).toLocaleString('fr-FR')}
-                  </p>
+                <p className="text-text font-medium">{notification.message}</p>
+                <p className="text-sm text-text/60 mt-1">
+                  {new Date(notification.createdAt).toLocaleString('fr-FR')}
+                </p>
                   
                   {/* Action button */}
                   {actionButton && (
