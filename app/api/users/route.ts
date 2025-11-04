@@ -28,7 +28,8 @@ export async function GET() {
 
   try {
     console.log('[API /users] Fetching clients from database...')
-    // Get all clients with their photo count and pieces progress
+    
+    // OPTIMIZED: Get all clients with their photo count AND proposition count in ONE query
     const clients = await prisma.user.findMany({
       where: { role: 'CLIENT' },
       select: {
@@ -41,6 +42,11 @@ export async function GET() {
         _count: {
           select: {
             photos: true,
+            propositions: {
+              where: {
+                status: 'ACHETE'
+              }
+            }
           }
         },
       },
@@ -51,24 +57,13 @@ export async function GET() {
 
     console.log(`[API /users] Found ${clients.length} clients`)
     
-    // Calculate pieces progress (X/Y) for each client
-    const clientsWithProgress = await Promise.all(
-      clients.map(async (client) => {
-        const purchasedCount = await prisma.proposition.count({
-          where: {
-            userId: client.id,
-            status: 'ACHETE',
-          },
-        })
-
-        return {
-          ...client,
-          photosCount: client._count.photos,
-          piecesProgress: `${purchasedCount}/${client.piecesOrdered}`,
-          piecesPurchased: purchasedCount,
-        }
-      })
-    )
+    // Transform the data (no additional DB queries needed!)
+    const clientsWithProgress = clients.map((client) => ({
+      ...client,
+      photosCount: client._count.photos,
+      piecesPurchased: client._count.propositions,
+      piecesProgress: `${client._count.propositions}/${client.piecesOrdered}`,
+    }))
 
     console.log(`[API /users] Returning ${clientsWithProgress.length} clients with progress`)
     return NextResponse.json(clientsWithProgress)
