@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server'
 
 export async function GET() {
   console.log('[API /users] GET request received')
+  console.log('[API /users] DATABASE_URL configured:', !!process.env.DATABASE_URL)
+  console.log('[API /users] DATABASE_URL preview:', process.env.DATABASE_URL?.substring(0, 50) + '...')
   
   const session = await getServerSession(authOptions)
   console.log('[API /users] Session:', {
