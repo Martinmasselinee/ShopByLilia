@@ -7,7 +7,7 @@ import { Input } from '@/components/shared/Input'
 import Image from 'next/image'
 
 export function ProfileForm() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -23,26 +23,34 @@ export function ProfileForm() {
   const [success, setSuccess] = useState('')
 
   useEffect(() => {
-    if (session?.user?.id) {
-      fetch(`/api/users/${session.user.id}`)
-        .then(res => res.json())
-        .then(data => {
-          setFormData({
-            fullName: data.fullName,
-            email: data.email,
-            phoneWhatsApp: data.phoneWhatsApp,
-            expectations: data.expectations,
-            piecesOrdered: data.piecesOrdered,
-            profilePhoto: data.profilePhoto,
-          })
-          setIsLoading(false)
-        })
-        .catch(err => {
-          console.error(err)
-          setIsLoading(false)
-        })
+    // Wait for session to be loaded before fetching
+    if (status === 'loading') {
+      return
     }
-  }, [session])
+
+    if (!session?.user?.id) {
+      setIsLoading(false)
+      return
+    }
+
+    fetch(`/api/users/${session.user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        setFormData({
+          fullName: data.fullName,
+          email: data.email,
+          phoneWhatsApp: data.phoneWhatsApp,
+          expectations: data.expectations,
+          piecesOrdered: data.piecesOrdered,
+          profilePhoto: data.profilePhoto,
+        })
+        setIsLoading(false)
+      })
+      .catch(err => {
+        console.error(err)
+        setIsLoading(false)
+      })
+  }, [session, status])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
