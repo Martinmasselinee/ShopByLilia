@@ -21,14 +21,25 @@ export function ClientsTable() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    console.log('[ClientsTable] Fetching clients from /api/users...')
     fetch('/api/users')
-      .then(res => res.json())
-      .then(data => {
+      .then(async res => {
+        console.log('[ClientsTable] Response status:', res.status)
+        const data = await res.json()
+        console.log('[ClientsTable] Response data:', data)
+        
+        if (!res.ok) {
+          console.error('[ClientsTable] API error:', data)
+          setIsLoading(false)
+          return
+        }
+        
+        console.log(`[ClientsTable] Received ${data.length} clients`)
         setClients(data)
         setIsLoading(false)
       })
       .catch(err => {
-        console.error(err)
+        console.error('[ClientsTable] Fetch error:', err)
         setIsLoading(false)
       })
   }, [])
