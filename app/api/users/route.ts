@@ -6,24 +6,23 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   console.log('[API /users] GET request received')
   
-  // TEMPORARILY DISABLE SESSION CHECK FOR DEBUGGING
-  // const session = await getServerSession(authOptions)
-  // console.log('[API /users] Session:', {
-  //   hasSession: !!session,
-  //   hasUser: !!session?.user,
-  //   role: session?.user?.role,
-  //   email: session?.user?.email
-  // })
+  const session = await getServerSession(authOptions)
+  console.log('[API /users] Session:', {
+    hasSession: !!session,
+    hasUser: !!session?.user,
+    role: session?.user?.role,
+    email: session?.user?.email
+  })
   
-  // if (!session?.user) {
-  //   console.error('[API /users] No session found - returning 401')
-  //   return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  // }
+  if (!session?.user) {
+    console.error('[API /users] No session found - returning 401')
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
 
-  // if (session.user.role !== 'ADMIN') {
-  //   console.error('[API /users] Not admin role - returning 403')
-  //   return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-  // }
+  if (session.user.role !== 'ADMIN') {
+    console.error('[API /users] Not admin role - returning 403')
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
 
   try {
     console.log('[API /users] Fetching clients from database...')
