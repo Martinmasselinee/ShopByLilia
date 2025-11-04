@@ -38,31 +38,33 @@ export function LoginForm() {
       }
 
       // Wait a bit for session to be established, then fetch user role
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, 200))
       
       try {
         const userResponse = await fetch('/api/auth/user')
         if (!userResponse.ok) {
           // If API fails, try to redirect anyway - session should work
-          router.push('/client/profile')
-          router.refresh()
+          // Middleware will handle redirect based on role
+          setIsLoading(false)
+          window.location.href = '/client/profile'
           return
         }
         
         const userData = await userResponse.json()
         
+        setIsLoading(false)
+        
         if (userData?.role === 'ADMIN') {
-          router.push('/admin/clients')
+          window.location.href = '/admin/clients'
         } else {
-          router.push('/client/profile')
+          window.location.href = '/client/profile'
         }
-        router.refresh()
       } catch (fetchError) {
         // If fetch fails, redirect to client profile as fallback
         // The session should still work and middleware will redirect if needed
         console.error('Error fetching user role:', fetchError)
-        router.push('/client/profile')
-        router.refresh()
+        setIsLoading(false)
+        window.location.href = '/client/profile'
       }
     } catch (err) {
       console.error('Login error:', err)
