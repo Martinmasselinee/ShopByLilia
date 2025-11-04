@@ -19,30 +19,57 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
+      console.log('Attempting login for:', email)
+      
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       })
 
+      console.log('SignIn result:', result)
+
       if (result?.error) {
-        setError('Email ou mot de passe incorrect')
+        console.error('Login error:', result.error)
+        setError(`Erreur de connexion: ${result.error}`)
+        setIsLoading(false)
+        return
+      }
+
+      if (!result?.ok) {
+        console.error('Login failed:', result)
+        setError('Échec de la connexion. Vérifiez vos identifiants.')
         setIsLoading(false)
         return
       }
 
       // Fetch user role to redirect correctly
-      const userResponse = await fetch('/api/auth/user')
-      const userData = await userResponse.json()
-      
-      if (userData?.role === 'ADMIN') {
-        router.push('/admin/clients')
-      } else {
+      try {
+        const userResponse = await fetch('/api/auth/user')
+        console.log('User API response status:', userResponse.status)
+        
+        if (!userResponse.ok) {
+          throw new Error(`HTTP ${userResponse.status}`)
+        }
+        
+        const userData = await userResponse.json()
+        console.log('User data:', userData)
+        
+        if (userData?.role === 'ADMIN') {
+          router.push('/admin/clients')
+        } else {
+          router.push('/client/profile')
+        }
+        router.refresh()
+      } catch (userErr) {
+        console.error('Error fetching user:', userErr)
+        // Still redirect even if user fetch fails
         router.push('/client/profile')
+        router.refresh()
       }
-      router.refresh()
     } catch (err) {
-      setError('Une erreur est survenue')
+      console.error('Login exception:', err)
+      setError('Erreur de connexion. Vérifiez votre connexion internet.')
       setIsLoading(false)
     }
   }
