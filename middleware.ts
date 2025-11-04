@@ -47,8 +47,12 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    '/admin/:path*', 
-    '/client/:path*'
+    // Don't protect /admin/clients and /client/profile on first access
+    // Let the pages handle auth checks themselves
+    '/admin/notifications/:path*',
+    '/admin/echanges/:path*',
+    '/client/mes-pieces/:path*',
+    '/client/propositions/:path*'
   ]
 }
 
