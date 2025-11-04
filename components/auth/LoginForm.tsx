@@ -91,13 +91,14 @@ export function LoginForm() {
       // Force session update to ensure cookies are set
       await update()
       
-      console.log('[LOGIN] Session updated, redirecting...')
-      setIsLoading(false)
+      console.log('[LOGIN] Session updated, waiting 500ms before redirect...')
+      // Small delay to ensure session is fully synced
+      await new Promise(resolve => setTimeout(resolve, 500))
       
-      // Use router.push instead of window.location to preserve session
-      console.log('[LOGIN] Using router.push to /admin/clients')
-      router.push('/admin/clients')
-      router.refresh()
+      setIsLoading(false)
+      console.log('[LOGIN] Redirecting to /admin/clients via window.location')
+      // Use window.location since session is now established
+      window.location.href = '/admin/clients'
     } catch (timeoutError: any) {
       console.error('[LOGIN] signIn timeout or error:', timeoutError)
       if (timeoutError?.message?.includes('timeout')) {
