@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const session = await getServerSession(authOptions)
   
@@ -13,7 +13,7 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { userId } = params
+  const { userId } = await params
 
   // Only admin or the user themselves can view photos
   if (session.user.role !== 'ADMIN' && session.user.id !== userId) {

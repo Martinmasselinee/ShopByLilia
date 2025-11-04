@@ -6,7 +6,7 @@ import { uploadImage } from '@/lib/cloudinary'
 
 export async function GET(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const session = await getServerSession(authOptions)
   
@@ -14,7 +14,7 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { userId } = params
+  const { userId } = await params
 
   if (session.user.id !== userId) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
@@ -50,7 +50,7 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const session = await getServerSession(authOptions)
   
@@ -58,7 +58,7 @@ export async function PUT(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { userId } = params
+  const { userId } = await params
 
   if (session.user.id !== userId) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })

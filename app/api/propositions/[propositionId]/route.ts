@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { propositionId: string } }
+  { params }: { params: Promise<{ propositionId: string }> }
 ) {
   const session = await getServerSession(authOptions)
   
@@ -13,7 +13,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { propositionId } = params
+  const { propositionId } = await params
 
   try {
     const body = await request.json()

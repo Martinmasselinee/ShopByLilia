@@ -1,14 +1,15 @@
 import { EchangeDetail } from '@/components/admin/EchangeDetail'
 
-export default function EchangeDetailPage({
+export default async function EchangeDetailPage({
   params,
 }: {
-  params: { userId: string }
+  params: Promise<{ userId: string }>
 }) {
+  const { userId } = await params
   return (
     <div>
       <h1 className="text-3xl font-bold text-primary mb-8">Échange</h1>
-      <EchangeDetail userId={params.userId} />
+      <EchangeDetail userId={userId} />
     </div>
   )
 }

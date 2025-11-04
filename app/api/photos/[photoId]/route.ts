@@ -6,7 +6,7 @@ import { cloudinary } from '@/lib/cloudinary'
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { photoId: string } }
+  { params }: { params: Promise<{ photoId: string }> }
 ) {
   const session = await getServerSession(authOptions)
   
@@ -14,7 +14,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { photoId } = params
+  const { photoId } = await params
 
   try {
     // Get photo to verify ownership

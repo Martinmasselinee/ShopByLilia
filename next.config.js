@@ -9,7 +9,6 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['res.cloudinary.com'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -17,6 +16,10 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  // Explicitly use webpack for next-pwa compatibility
+  webpack: (config, { isServer }) => {
+    return config
   },
 }
 
