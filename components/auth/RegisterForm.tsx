@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
 
@@ -118,8 +119,37 @@ export function RegisterForm() {
       })
 
       // Auto-login after registration
-      console.log('[REGISTER] Redirecting to /client/profile...')
-      router.push('/client/profile')
+      console.log('[REGISTER] Attempting auto-login...')
+      try {
+        const signInResult = await signIn('credentials', {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+        })
+        
+        console.log('[REGISTER] Auto-login result:', {
+          ok: signInResult?.ok,
+          error: signInResult?.error,
+          timestamp: new Date().toISOString()
+        })
+
+        if (signInResult?.ok) {
+          console.log('[REGISTER] Auto-login successful, redirecting to /client/profile...')
+          // Wait a bit for session to be established
+          await new Promise(resolve => setTimeout(resolve, 500))
+          window.location.href = '/client/profile'
+        } else {
+          console.error('[REGISTER] Auto-login failed:', signInResult?.error)
+          // If auto-login fails, redirect to login page
+          console.log('[REGISTER] Redirecting to /login (auto-login failed)')
+          router.push('/login?registered=true')
+        }
+      } catch (loginError) {
+        console.error('[REGISTER] Auto-login error:', loginError)
+        // If auto-login fails, redirect to login page
+        console.log('[REGISTER] Redirecting to /login (auto-login error)')
+        router.push('/login?registered=true')
+      }
     } catch (err) {
       console.error('[REGISTER] Registration error:', err)
       console.error('[REGISTER] Error details:', {

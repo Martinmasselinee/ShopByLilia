@@ -48,9 +48,7 @@ export default withAuth(
 export const config = {
   matcher: [
     '/admin/:path*', 
-    '/client/:path*',
-    // Exclude static files and API routes
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*|icons).*)',
+    '/client/:path*'
   ]
 }
 
