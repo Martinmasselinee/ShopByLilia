@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -18,11 +19,22 @@ interface Notification {
 }
 
 export function NotificationsList() {
+  const { data: session, status } = useSession()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
 
   useEffect(() => {
+    // Wait for session to be loaded before fetching
+    if (status === 'loading') {
+      return
+    }
+
+    if (!session) {
+      setIsLoading(false)
+      return
+    }
+
     fetch(`/api/notifications?adminOnly=true`)
       .then(res => res.json())
       .then(data => {
@@ -33,7 +45,7 @@ export function NotificationsList() {
         console.error(err)
         setIsLoading(false)
       })
-  }, [])
+  }, [session, status])
 
   const filteredNotifications = showUnreadOnly
     ? notifications.filter(n => !n.read)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -17,11 +18,24 @@ interface Client {
 }
 
 export function ClientsTable() {
+  const { data: session, status } = useSession()
   const [clients, setClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    console.log('[ClientsTable] Fetching clients from /api/users...')
+    // Wait for session to be loaded before fetching
+    if (status === 'loading') {
+      console.log('[ClientsTable] Waiting for session to load...')
+      return
+    }
+
+    if (!session) {
+      console.error('[ClientsTable] No session found')
+      setIsLoading(false)
+      return
+    }
+
+    console.log('[ClientsTable] Session confirmed, fetching clients from /api/users...')
     fetch('/api/users')
       .then(async res => {
         console.log('[ClientsTable] Response status:', res.status)
@@ -42,7 +56,7 @@ export function ClientsTable() {
         console.error('[ClientsTable] Fetch error:', err)
         setIsLoading(false)
       })
-  }, [])
+  }, [session, status])
 
   if (isLoading) {
     return <div className="text-center py-8">Chargement...</div>

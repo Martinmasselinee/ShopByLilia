@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -14,10 +15,21 @@ interface Client {
 }
 
 export function EchangesList() {
+  const { data: session, status } = useSession()
   const [clients, setClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Wait for session to be loaded before fetching
+    if (status === 'loading') {
+      return
+    }
+
+    if (!session) {
+      setIsLoading(false)
+      return
+    }
+
     fetch('/api/users')
       .then(res => res.json())
       .then(data => {
@@ -35,7 +47,7 @@ export function EchangesList() {
         console.error(err)
         setIsLoading(false)
       })
-  }, [])
+  }, [session, status])
 
   if (isLoading) {
     return <div className="text-center py-8">Chargement...</div>

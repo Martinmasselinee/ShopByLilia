@@ -14,7 +14,7 @@ interface Photo {
 }
 
 export function PhotosGrid() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [photos, setPhotos] = useState<Photo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
@@ -35,8 +35,18 @@ export function PhotosGrid() {
   }
 
   useEffect(() => {
+    // Wait for session to be loaded before fetching
+    if (status === 'loading') {
+      return
+    }
+
+    if (!session) {
+      setIsLoading(false)
+      return
+    }
+
     fetchPhotos()
-  }, [session])
+  }, [session, status])
 
   const handleDelete = async (photoId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette photo ?')) {

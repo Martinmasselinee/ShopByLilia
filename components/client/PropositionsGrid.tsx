@@ -16,24 +16,32 @@ interface Proposition {
 }
 
 export function PropositionsGrid() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [propositions, setPropositions] = useState<Proposition[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (session?.user?.id) {
-      fetch(`/api/propositions/${session.user.id}`)
-        .then(res => res.json())
-        .then(data => {
-          setPropositions(data)
-          setIsLoading(false)
-        })
-        .catch(err => {
-          console.error(err)
-          setIsLoading(false)
-        })
+    // Wait for session to be loaded before fetching
+    if (status === 'loading') {
+      return
     }
-  }, [session])
+
+    if (!session?.user?.id) {
+      setIsLoading(false)
+      return
+    }
+
+    fetch(`/api/propositions/${session.user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        setPropositions(data)
+        setIsLoading(false)
+      })
+      .catch(err => {
+        console.error(err)
+        setIsLoading(false)
+      })
+  }, [session, status])
 
   const handleStatusChange = async (propositionId: string, newStatus: string) => {
     try {
