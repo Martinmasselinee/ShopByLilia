@@ -12,6 +12,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
+        console.log('[AUTH AUTHORIZE] Starting authorization...')
         console.log('[AUTH] authorize called:', { 
           email: credentials?.email, 
           hasPassword: !!credentials?.password,
@@ -96,7 +97,10 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development',
+  trustHost: true, // Required for Vercel
 }
 
