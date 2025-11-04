@@ -64,18 +64,27 @@ export function RegisterForm() {
         body: formDataToSend,
       })
 
-      const data = await response.json()
-
+      // Check if response is ok before parsing JSON
       if (!response.ok) {
-        setError(data.error || 'Une erreur est survenue')
+        let errorMessage = 'Une erreur est survenue'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          errorMessage = `Erreur ${response.status}: ${response.statusText}`
+        }
+        setError(errorMessage)
         setIsLoading(false)
         return
       }
 
+      const data = await response.json()
+
       // Auto-login after registration
       router.push('/client/profile')
     } catch (err) {
-      setError('Une erreur est survenue')
+      console.error('Registration error:', err)
+      setError('Erreur de connexion. Vérifiez votre connexion internet.')
       setIsLoading(false)
     }
   }
